@@ -25,6 +25,13 @@
 #include <cstring>
 #include <memory>
 
+namespace {
+
+// larger writes are file and clipboard chunks: throughput-bound, not worth a copy
+const UInt32 kMaxMergedPacketPayload = 512;
+
+}
+
 //
 // PacketStreamFilter
 //
@@ -99,6 +106,16 @@ PacketStreamFilter::write(const void* buffer, UInt32 count)
     length[1] = (UInt8)((count >> 16) & 0xff);
     length[2] = (UInt8)((count >>  8) & 0xff);
     length[3] = (UInt8)( count        & 0xff);
+
+    // one write, so the header and payload cannot land in separate segments
+    if (count <= kMaxMergedPacketPayload) {
+        UInt8 packet[sizeof(length) + kMaxMergedPacketPayload];
+        std::memcpy(packet, length, sizeof(length));
+        std::memcpy(packet + sizeof(length), buffer, count);
+        getStream()->write(packet, sizeof(length) + count);
+        return;
+    }
+
     getStream()->write(length, sizeof(length));
 
     // write the payload
