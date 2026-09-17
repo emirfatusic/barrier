@@ -16,6 +16,25 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 cmake_minimum_required (VERSION 3.5...3.27)
+
+# must be decided before project(), which configures the compilers with it
+if (APPLE AND NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+    if (CMAKE_OSX_ARCHITECTURES)
+        set (BARRIER_TARGET_ARCH "${CMAKE_OSX_ARCHITECTURES}")
+    else()
+        execute_process (COMMAND uname -m
+                         OUTPUT_VARIABLE BARRIER_TARGET_ARCH
+                         OUTPUT_STRIP_TRAILING_WHITESPACE)
+    endif()
+
+    # arm64 macOS starts at 11.0 and clang does not clamp a lower minimum
+    if (BARRIER_TARGET_ARCH MATCHES "arm64")
+        set (CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS version")
+    else()
+        set (CMAKE_OSX_DEPLOYMENT_TARGET "10.12" CACHE STRING "Minimum macOS version")
+    endif()
+endif()
+
 project (barrier C CXX)
 
 option (BARRIER_BUILD_GUI "Build the GUI" ON)
