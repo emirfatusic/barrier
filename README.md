@@ -75,6 +75,21 @@ Submit pull requests once you've polished up your patch and we'll review and pos
 Most pull requests will need to include a release note.
 See docs/newsfragments/README.md for documentation of how to do that.
 
+## Building from source
+
+Run `./clean_build.sh` from the top of the tree. It configures a Debug build
+into `build/` and leaves the binaries in `build/bin`.
+
+On macOS the script needs either the Command Line Tools (`xcode-select
+--install`) or full Xcode, plus Homebrew or MacPorts providing `qt@5` and
+`openssl`. Both the Intel prefix (`/usr/local`) and the Apple Silicon prefix
+(`/opt/homebrew`) are supported, and the build is native to the machine it runs
+on: arm64 Macs get an arm64 binary with a macOS 11.0 minimum, Intel Macs get an
+x86_64 binary with a 10.12 minimum. Universal binaries are not produced, because
+Homebrew's `qt@5` keg is single-architecture.
+
+CMake 3.5 or newer is required.
+
 ## Distro specific packages
 
 While not a comprehensive list, repology provides a decent list of distro

@@ -1,0 +1,1 @@
+The build scripts now work on Apple Silicon Macs: the macOS SDK is located with `xcrun` so the Command Line Tools are enough, Homebrew is found at `/opt/homebrew` as well as `/usr/local`, and the deployment target matches the architecture being built.
