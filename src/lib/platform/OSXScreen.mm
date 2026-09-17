@@ -294,6 +294,9 @@ OSXScreen::warpCursor(SInt32 x, SInt32 y)
 	pos.y = y;
 	CGWarpMouseCursorPosition(pos);
 
+	// end the local event suppression the warp starts; the API that used to shorten it is dead
+	CGAssociateMouseAndMouseCursorPosition(true);
+
 	// save new cursor position
 	m_xCursor        = x;
 	m_yCursor        = y;
