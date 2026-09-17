@@ -53,7 +53,8 @@ bool NonBlockingStream::try_read_char(char &ch) const
     int result = read(_fd, &ch, 1);
     if (result == 1)
         return true;
-    assert(result == -1 && (errno == EAGAIN || errno == EWOULDBLOCK));
+    // 0 is end of file, which is what a closed or redirected stdin gives us
+    assert(result == 0 || (result == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)));
     return false;
 }
 
