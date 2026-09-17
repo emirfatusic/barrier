@@ -74,6 +74,9 @@ protected:
     virtual EJobResult    doRead();
     virtual EJobResult    doWrite();
 
+    // call with the mutex held; SecureSocket must keep its override or plaintext goes out on a TLS socket
+    virtual UInt32        tryWriteInline(const void* buffer, UInt32 n);
+
     void removeJob();
     void setJob(std::unique_ptr<ISocketMultiplexerJob>&& job);
     MultiplexerJobStatus newJobOrStopServicing();

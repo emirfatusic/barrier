@@ -155,6 +155,19 @@ TCPSocket::read(void* buffer, UInt32 n)
     return n;
 }
 
+UInt32
+TCPSocket::tryWriteInline(const void* buffer, UInt32 n)
+{
+    try {
+        int wrote = ARCH->writeSocket(m_socket, buffer, n);
+        return wrote > 0 ? static_cast<UInt32>(wrote) : 0;
+    }
+    catch (XArchNetwork&) {
+        // let the multiplexer hit the same error and report it as it always has
+        return 0;
+    }
+}
+
 void
 TCPSocket::write(const void* buffer, UInt32 n)
 {
@@ -173,8 +186,21 @@ TCPSocket::write(const void* buffer, UInt32 n)
             return;
         }
 
-        // copy data to the output buffer
         wasEmpty = (m_outputBuffer.getSize() == 0);
+
+        // empty buffer plus held mutex: nothing else is mid-write, so this cannot reorder bytes
+        if (wasEmpty && m_connected && m_socket != NULL) {
+            UInt32 wrote = tryWriteInline(buffer, n);
+            if (wrote == n) {
+                sendEvent(m_events->forIStream().outputFlushed());
+                return;
+            }
+
+            buffer = static_cast<const UInt8*>(buffer) + wrote;
+            n -= wrote;
+        }
+
+        // copy data to the output buffer
         m_outputBuffer.write(buffer, n);
 
         // there's data to write

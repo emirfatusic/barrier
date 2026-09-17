@@ -57,6 +57,9 @@ public:
     int                    secureWrite(const void* buffer, int size, int& wrote);
     EJobResult            doRead() override;
     EJobResult            doWrite() override;
+
+    // never write to the socket directly here: it would put plaintext on a TLS connection
+    UInt32                tryWriteInline(const void*, UInt32) override { return 0; }
     void                initSsl(bool server);
     bool load_certificates(const barrier::fs::path& path);
 
