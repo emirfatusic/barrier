@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.4)
+cmake_minimum_required (VERSION 3.5...3.27)
 
 set (BARRIER_VERSION_MAJOR 2)
 set (BARRIER_VERSION_MINOR 4)
