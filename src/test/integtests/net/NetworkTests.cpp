@@ -15,9 +15,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-// TODO: fix, tests failing intermittently on mac.
-#ifndef WINAPI_CARBON
-
 #define BARRIER_TEST_ENV
 
 #include "test/mock/server/MockConfig.h"
@@ -525,4 +522,3 @@ getCursorPos(SInt32& x, SInt32& y)
     y = 0;
 }
 
-#endif // WINAPI_CARBON
