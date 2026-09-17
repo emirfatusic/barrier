@@ -58,7 +58,6 @@ enum {
 
 // TODO: upgrade deprecated function usage in these functions.
 void setZeroSuppressionInterval();
-void avoidSupression();
 void logCursorVisibility();
 void avoidHesitatingCursor();
 
@@ -93,6 +92,7 @@ OSXScreen::OSXScreen(IEventQueue* events, bool isPrimary, bool autoShowHideCurso
 	m_pmRootPort(0),
 	m_activeModifierHotKey(0),
 	m_activeModifierHotKeyMask(0),
+	m_eventSource(nullptr),
 	m_eventTapPort(nullptr),
 	m_eventTapRLSR(nullptr),
 	m_lastClickTime(0),
@@ -109,6 +109,23 @@ OSXScreen::OSXScreen(IEventQueue* events, bool isPrimary, bool autoShowHideCurso
 		updateScreenShape(m_displayID, 0);
 		m_screensaver = new OSXScreenSaver(m_events, getEventTarget());
 		m_keyState	  = new OSXKeyState(m_events);
+
+		// events created with NULL take no per-source settings, so injected
+		// input cannot opt out of suppressing the user's own hardware
+		m_eventSource = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
+		if (m_eventSource != nullptr) {
+			CGEventSourceSetLocalEventsSuppressionInterval(m_eventSource, 0.0);
+			CGEventSourceSetLocalEventsFilterDuringSuppressionState(m_eventSource,
+									kCGEventFilterMaskPermitAllEvents,
+									kCGEventSuppressionStateSuppressionInterval);
+			CGEventSourceSetLocalEventsFilterDuringSuppressionState(m_eventSource,
+									(kCGEventFilterMaskPermitLocalKeyboardEvents |
+									kCGEventFilterMaskPermitSystemDefinedEvents),
+									kCGEventSuppressionStateRemoteMouseDrag);
+		}
+		else {
+			LOG((CLOG_WARN "failed to create quartz event source"));
+		}
 
 		// only needed when running as a server.
 		if (m_isPrimary) {
@@ -215,6 +232,11 @@ OSXScreen::~OSXScreen()
 
 	delete m_keyState;
 	delete m_screensaver;
+
+	if (m_eventSource != nullptr) {
+		CFRelease(m_eventSource);
+		m_eventSource = nullptr;
+	}
 
 #if defined(MAC_OS_X_VERSION_10_7)
 	delete m_carbonLoopMutex;
@@ -475,7 +497,7 @@ OSXScreen::postMouseEvent(CGPoint& pos) const
 		type = thisButtonType[kMouseButtonDragged];
 	}
 
-	CGEventRef event = CGEventCreateMouseEvent(NULL, type, pos, static_cast<CGMouseButton>(button));
+	CGEventRef event = CGEventCreateMouseEvent(m_eventSource, type, pos, static_cast<CGMouseButton>(button));
 
     // Dragging events also need the click state
     CGEventSetIntegerValueField(event, kCGMouseEventClickState, m_clickState);
@@ -561,7 +583,7 @@ OSXScreen::fakeMouseButton(ButtonID id, bool press)
     MouseButtonEventMapType thisButtonMap = MouseButtonEventMap[index];
     CGEventType type = thisButtonMap[state];
 
-    CGEventRef event = CGEventCreateMouseEvent(NULL, type, pos, static_cast<CGMouseButton>(index));
+    CGEventRef event = CGEventCreateMouseEvent(m_eventSource, type, pos, static_cast<CGMouseButton>(index));
 
     CGEventSetIntegerValueField(event, kCGMouseEventClickState, m_clickState);
 
@@ -672,7 +694,7 @@ OSXScreen::fakeMouseWheel(SInt32 xDelta, SInt32 yDelta) const
 		// create a scroll event, post it and release it.  not sure if kCGScrollEventUnitLine
 		// is the right choice here over kCGScrollEventUnitPixel
 		CGEventRef scrollEvent = CGEventCreateScrollWheelEvent(
-			NULL, kCGScrollEventUnitLine, 2,
+			m_eventSource, kCGScrollEventUnitLine, 2,
 			mapScrollWheelFromBarrier(yDelta),
 			-mapScrollWheelFromBarrier(xDelta));
 
@@ -848,7 +870,6 @@ OSXScreen::enter()
 			IOObjectRelease(entry);
 		}
 
-		avoidSupression();
 	}
 
 	// now on screen
@@ -2115,26 +2136,13 @@ OSXScreen::waitForCarbonLoop() const
 
 }
 
+#pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 void
 setZeroSuppressionInterval()
 {
 	CGSetLocalEventsSuppressionInterval(0.0);
-}
-
-void
-avoidSupression()
-{
-	// avoid suppression of local hardware events
-	// stkamp@users.sourceforge.net
-	CGSetLocalEventsFilterDuringSupressionState(
-							kCGEventFilterMaskPermitAllEvents,
-							kCGEventSupressionStateSupressionInterval);
-	CGSetLocalEventsFilterDuringSupressionState(
-							(kCGEventFilterMaskPermitLocalKeyboardEvents |
-							kCGEventFilterMaskPermitSystemDefinedEvents),
-							kCGEventSupressionStateRemoteMouseDrag);
 }
 
 void
@@ -2155,4 +2163,4 @@ avoidHesitatingCursor()
 	CGSetLocalEventsSuppressionInterval(0.0001);
 }
 
-#pragma GCC diagnostic error "-Wdeprecated-declarations"
+#pragma GCC diagnostic pop

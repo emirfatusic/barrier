@@ -323,6 +323,7 @@ private:
     static bool                s_hasGHOM;
 
     // Quartz input event support
+    CGEventSourceRef        m_eventSource;
     CFMachPortRef            m_eventTapPort;
     CFRunLoopSourceRef        m_eventTapRLSR;
 
