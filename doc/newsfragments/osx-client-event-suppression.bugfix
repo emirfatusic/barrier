@@ -1,0 +1,1 @@
+macOS: local keyboard and mouse input is no longer suppressed for a quarter of a second after injected remote input. Barrier was configuring suppression through a Quartz API that has been unsupported since macOS 10.6, and was creating injected events without an event source, so the configuration could never apply.

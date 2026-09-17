@@ -1,0 +1,1 @@
+Reduced input latency: each protocol message is now sent as a single write, so a mouse move or keystroke is no longer split across two TCP segments, and small writes go straight to the socket instead of waiting for the socket multiplexer to wake up.
