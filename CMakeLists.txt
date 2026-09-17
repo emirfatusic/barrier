@@ -344,7 +344,7 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     find_program(BREW_PROGRAM "brew")
     find_program(PORT_PROGRAM "port")
 
-    if (IS_DIRECTORY /opt/procursus AND APT_PROGRAM)
+    if (NOT OPENSSL_ROOT AND IS_DIRECTORY /opt/procursus AND APT_PROGRAM)
         # procursus/apt
         set (OPENSSL_ROOT /opt/procursus)
 
@@ -354,7 +354,7 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
             ${OPENSSL_ROOT}/lib/libssl.a
             ${OPENSSL_ROOT}/lib/libcrypto.a
         )
-    elseif (IS_DIRECTORY /opt/local AND PORT_PROGRAM)
+    elseif (NOT OPENSSL_ROOT AND IS_DIRECTORY /opt/local AND PORT_PROGRAM)
         # macports
         set (OPENSSL_ROOT /opt/local)
 
@@ -363,19 +363,53 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
             ${OPENSSL_ROOT}/lib/libcrypto.a
             z
         )
-    elseif (IS_DIRECTORY /usr/local/opt/openssl AND BREW_PROGRAM)
-        # brew
-        set (OPENSSL_ROOT /usr/local/opt/openssl)
+    else()
+        # ask brew where its openssl keg is, so a versioned keg with no
+        # unversioned symlink still works
+        if (BREW_PROGRAM)
+            foreach (keg openssl openssl@3 openssl@1.1)
+                if (NOT OPENSSL_ROOT)
+                    execute_process (COMMAND ${BREW_PROGRAM} --prefix ${keg}
+                                     OUTPUT_VARIABLE brew_openssl_prefix
+                                     OUTPUT_STRIP_TRAILING_WHITESPACE
+                                     RESULT_VARIABLE brew_openssl_result
+                                     ERROR_QUIET)
+                    if (brew_openssl_result EQUAL 0 AND IS_DIRECTORY "${brew_openssl_prefix}")
+                        set (OPENSSL_ROOT "${brew_openssl_prefix}")
+                    endif()
+                endif()
+            endforeach()
+        endif()
 
-        include_directories (BEFORE SYSTEM ${OPENSSL_ROOT}/include)
+        if (CMAKE_OSX_ARCHITECTURES)
+            set (BARRIER_TARGET_ARCH "${CMAKE_OSX_ARCHITECTURES}")
+        else()
+            set (BARRIER_TARGET_ARCH "${CMAKE_SYSTEM_PROCESSOR}")
+        endif()
 
-        set (OPENSSL_LIBS
-            ${OPENSSL_ROOT}/lib/libssl.a
-            ${OPENSSL_ROOT}/lib/libcrypto.a
-        )
-    elseif (IS_DIRECTORY /opt/homebrew/opt/openssl AND BREW_PROGRAM)
-        # brew
-        set (OPENSSL_ROOT /opt/homebrew/opt/openssl)
+        # a machine can carry both prefixes; search the one matching the target
+        # architecture first so an arm64 build cannot pick up the x86_64 keg
+        if (BARRIER_TARGET_ARCH MATCHES "arm64")
+            set (BARRIER_BREW_PREFIXES /opt/homebrew /usr/local)
+        else()
+            set (BARRIER_BREW_PREFIXES /usr/local /opt/homebrew)
+        endif()
+
+        foreach (prefix ${BARRIER_BREW_PREFIXES})
+            foreach (keg openssl openssl@3 openssl@1.1)
+                if (NOT OPENSSL_ROOT AND IS_DIRECTORY ${prefix}/opt/${keg})
+                    set (OPENSSL_ROOT ${prefix}/opt/${keg})
+                endif()
+            endforeach()
+        endforeach()
+
+        if (NOT OPENSSL_ROOT)
+            message (FATAL_ERROR
+                "openssl not found. Looked for a Homebrew keg (openssl, openssl@3 "
+                "or openssl@1.1) under /opt/homebrew/opt and /usr/local/opt, for "
+                "/opt/procursus and for /opt/local. Install it with "
+                "'brew install openssl' or pass -DOPENSSL_ROOT=<prefix>.")
+        endif()
 
         include_directories (BEFORE SYSTEM ${OPENSSL_ROOT}/include)
 
